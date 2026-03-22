@@ -1,0 +1,17 @@
+.next/
+.turbo/
+node_modules/
+dist/
+build/
+coverage/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.venv/
+backend/.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+frontend/.next/
+frontend/node_modules/
+.env
+.env.local
