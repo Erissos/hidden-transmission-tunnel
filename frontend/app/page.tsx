@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { buildWebSocketUrl, joinRoom } from "@/lib/api";
@@ -14,6 +15,7 @@ export default function HomePage() {
   const roomKeyRef = useRef<CryptoKey | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const isConnectingRef = useRef(false);
+  const disconnectStatusRef = useRef<string | null>(null);
 
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [roomCode, setRoomCode] = useState("");
@@ -65,6 +67,7 @@ export default function HomePage() {
   }, [messages]);
 
   function resetConnectionState(nextStatus: string) {
+    disconnectStatusRef.current = nextStatus;
     socketRef.current?.close();
     socketRef.current = null;
     roomKeyRef.current = null;
@@ -116,6 +119,7 @@ export default function HomePage() {
       setStatus("Negotiating anonymous entry.");
       setMessages([]);
       setPresence([]);
+      disconnectStatusRef.current = null;
 
       if (socketRef.current) {
         socketRef.current.close();
@@ -178,17 +182,20 @@ export default function HomePage() {
       };
 
       socket.onclose = () => {
+        const nextStatus = disconnectStatusRef.current ?? "Disconnected.";
         socketRef.current = null;
         roomKeyRef.current = null;
         isConnectingRef.current = false;
+        disconnectStatusRef.current = null;
         setConnectionState("idle");
         setPresence([]);
         setNickname(null);
-        setStatus("Disconnected.");
+        setStatus(nextStatus);
       };
 
       socket.onerror = () => {
         isConnectingRef.current = false;
+        setConnectionState("idle");
         setError("WebSocket connection failed");
       };
     } catch (caught) {
@@ -231,6 +238,9 @@ export default function HomePage() {
     }
   }
 
+  const channelReady = connectionState === "connected";
+  const onlineCount = presence.length;
+
   return (
     <main className="shell">
       <div className="grid">
@@ -242,6 +252,21 @@ export default function HomePage() {
               Private channels are reachable only by code. The server authorizes entry and relays ciphertext; message contents are encrypted and decrypted inside the browser.
             </p>
           </div>
+
+          <section className="signal-strip" aria-label="Channel summary">
+            <div className="signal-block">
+              <span className="label">Status</span>
+              <strong>{connectionState}</strong>
+            </div>
+            <div className="signal-block">
+              <span className="label">Online</span>
+              <strong>{onlineCount}</strong>
+            </div>
+            <div className="signal-block">
+              <span className="label">Retention</span>
+              <strong>Client only</strong>
+            </div>
+          </section>
 
           <section className="card">
             <span className="label">Anonymous Registration</span>
@@ -283,7 +308,7 @@ export default function HomePage() {
             />
             <div className="actions">
               <button className="button" onClick={() => void handleConnect()} disabled={connectionState !== "idle" || !roomCode.trim() || retryAfterSeconds > 0}>
-              {connectionState === "connecting" ? "Connecting..." : connectionState === "connected" ? "Connected" : "Connect"}
+                {connectionState === "connecting" ? "Connecting..." : connectionState === "connected" ? "Connected" : "Connect"}
               </button>
               <button className="button secondary" onClick={handleDisconnect} disabled={connectionState === "idle"}>
                 Disconnect
@@ -297,9 +322,9 @@ export default function HomePage() {
             <span className="label">Operational State</span>
             <div className="subtle">{status}</div>
             {error ? <div className="notice alert">{error}</div> : null}
-            <a href="/admin" className="notice">
+            <Link href="/admin" className="shortcut-link">
               Restricted admin panel
-            </a>
+            </Link>
           </section>
         </aside>
 
@@ -310,16 +335,17 @@ export default function HomePage() {
               <div>{nickname ?? "No active room"}</div>
             </div>
             <div className="status-cluster">
-              <div className="presence-count">{presence.length} online</div>
+              <div className="presence-count">{onlineCount} online</div>
               <div className="badge">{connectionState}</div>
             </div>
           </header>
 
           <div className="chat-scroll" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="card">
+              <div className="card empty-state">
                 <span className="label">Cold Channel</span>
                 <div className="subtle">Connect with a valid room code to start a private session.</div>
+                <div className="notice">No onboarding maze, no excess chrome. Enter a code, connect, transmit.</div>
               </div>
             ) : null}
 
@@ -349,15 +375,15 @@ export default function HomePage() {
               onChange={(event) => setMessageDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}
             />
-            <div className="actions">
+            <div className="composer-row">
               <input
                 className="input"
                 value={selfDestruct}
-                onChange={(event) => setSelfDestruct(event.target.value)}
+                onChange={(event) => setSelfDestruct(event.target.value.replace(/[^0-9]/g, ""))}
                 placeholder="Self-destruct seconds"
-                style={{ maxWidth: 210 }}
+                inputMode="numeric"
               />
-              <button className="button" onClick={() => void handleSend()} disabled={connectionState !== "connected" || !messageDraft.trim()}>
+              <button className="button" onClick={() => void handleSend()} disabled={!channelReady || !messageDraft.trim()}>
                 Transmit
               </button>
             </div>

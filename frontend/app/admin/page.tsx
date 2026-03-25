@@ -72,17 +72,30 @@ export default function AdminPage() {
 
   return (
     <main className="shell">
-      <div style={{ maxWidth: 820, margin: "0 auto", display: "grid", gap: 20 }}>
+      <div className="admin-layout">
         <section className="panel sidebar">
           <div className="brand">
             <span className="eyebrow">Restricted Surface</span>
-            <h1 className="headline" style={{ fontSize: "clamp(28px, 5vw, 44px)" }}>
-              Admin Panel
-            </h1>
+            <h1 className="headline admin-headline">Admin Panel</h1>
             <p className="subtle">
               This panel is only useful when the request originates from an allowed IP address and the correct admin key is supplied. Backend enforcement remains mandatory even if this page is publicly reachable.
             </p>
           </div>
+
+          <section className="signal-strip" aria-label="Admin surface summary">
+            <div className="signal-block">
+              <span className="label">Access</span>
+              <strong>{isAuthorized ? "Granted" : "Locked"}</strong>
+            </div>
+            <div className="signal-block">
+              <span className="label">Client IP</span>
+              <strong>{clientIp ?? "Pending"}</strong>
+            </div>
+            <div className="signal-block">
+              <span className="label">Storage</span>
+              <strong>{persistMessages ? "Persistent" : "Ephemeral"}</strong>
+            </div>
+          </section>
         </section>
 
         <section className="panel sidebar">
@@ -121,10 +134,11 @@ export default function AdminPage() {
               className="input"
               placeholder="TTL seconds"
               value={ttlSeconds}
-              onChange={(event) => setTtlSeconds(event.target.value)}
+              onChange={(event) => setTtlSeconds(event.target.value.replace(/[^0-9]/g, ""))}
               disabled={!isAuthorized}
+              inputMode="numeric"
             />
-            <label className="notice" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <label className="inline-toggle notice">
               <input
                 type="checkbox"
                 checked={persistMessages}
